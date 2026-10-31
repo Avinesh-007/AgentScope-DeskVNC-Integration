@@ -9,6 +9,7 @@ from ._ask_user import (
 )
 from ._backend import BackendBase, DirEntry, ExecResult, LocalBackend
 from ._bash import Bash
+from ._deskvnc import DeskVNCTool, unscale_coordinates
 from ._edit import Edit
 from ._glob import Glob
 from ._grep import Grep
@@ -32,6 +33,8 @@ __all__ = [
     "Grep",
     "Read",
     "Write",
+    "DeskVNCTool",
+    "unscale_coordinates",
     "BackendBase",
     "DirEntry",
     "LocalBackend",
