@@ -332,7 +332,11 @@ class DeskVNCTool(ToolBase):
                     "geometry": {"width": 1920, "height": 1080},
                 },
             )
-            gen = int(limb.get("generation", 0)) + 1
+            raw_gen = limb.get("generation", 0)
+            if isinstance(raw_gen, (int, str)):
+                gen = int(raw_gen) + 1
+            else:
+                gen = 1
             limb["generation"] = gen
             # Transparent 1x1 test PNG base64
             test_png = (
@@ -376,10 +380,10 @@ class DeskVNCTool(ToolBase):
         return {"ok": True}
 
     # pylint: disable=too-many-return-statements,too-many-branches
-    # pylint: disable=too-many-statements,too-many-positional-arguments
-    # pylint: disable=arguments-differ
+    # pylint: disable=too-many-statements,arguments-differ
     async def call(  # type: ignore[override]
         self,
+        *,
         action: str,
         limb_id: str | None = None,
         host_id: str | None = None,

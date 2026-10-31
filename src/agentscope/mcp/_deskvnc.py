@@ -11,10 +11,10 @@ from ._config import HttpMCPConfig, StdioMCPConfig
 from ._mcp_client import MCPClient
 
 
-# pylint: disable=too-many-positional-arguments
 def create_deskvnc_mcp_client(
     command: str | None = None,
     args: Sequence[str] | None = None,
+    *,
     http_url: str | None = None,
     auth_token: str | None = None,
     name: str = "deskvnc",
