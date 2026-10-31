@@ -16,6 +16,7 @@ class DeskVNCInterfaceTest(IsolatedAsyncioTestCase):
     """Test public tool interfaces, schemas, and permission rules."""
 
     async def test_tool_attributes_and_schemas(self) -> None:
+        """Test default tool attributes, schemas, and properties."""
         tool = DeskVNCTool()
         self.assertEqual(tool.name, "DeskVNCTool")
         self.assertFalse(tool.is_concurrency_safe)
@@ -27,6 +28,7 @@ class DeskVNCInterfaceTest(IsolatedAsyncioTestCase):
         self.assertIn("scale", tool.input_schema["properties"])
 
     async def test_permission_boundaries(self) -> None:
+        """Test permission decisions for read and mutating actions."""
         tool = DeskVNCTool()
         ctx = PermissionContext()
 
@@ -36,7 +38,14 @@ class DeskVNCInterfaceTest(IsolatedAsyncioTestCase):
             self.assertEqual(dec.behavior, PermissionBehavior.ALLOW)
 
         # Mutating actions should require user approval (ASK)
-        for act in ("click", "type", "key", "connect", "disconnect", "reconnect"):
+        for act in (
+            "click",
+            "type",
+            "key",
+            "connect",
+            "disconnect",
+            "reconnect",
+        ):
             dec = await tool.check_permissions({"action": act}, ctx)
             self.assertEqual(dec.behavior, PermissionBehavior.ASK)
 
@@ -45,6 +54,7 @@ class DeskVNCCoordinateScalingTest(unittest.TestCase):
     """Test coordinate scaling and unscaling mathematics."""
 
     def test_unscale_coordinates(self) -> None:
+        """Test coordinate conversion from scaled image to framebuffer."""
         # At scale 0.5, image coordinate (400, 300) maps to remote (800, 600)
         rem_x, rem_y = unscale_coordinates(400, 300, scale=0.5)
         self.assertEqual(rem_x, 800)
@@ -64,7 +74,10 @@ class DeskVNCExecutionTest(IsolatedAsyncioTestCase):
         self.tool = DeskVNCTool()
 
     async def test_list_hosts(self) -> None:
-        chunks = [chunk async for chunk in await self.tool(action="list_hosts")]
+        """Test list_hosts action returns registered hosts."""
+        chunks = [
+            chunk async for chunk in await self.tool(action="list_hosts")
+        ]
 
         self.assertEqual(len(chunks), 1)
         self.assertEqual(chunks[0].state, ToolResultState.SUCCESS)
@@ -75,15 +88,24 @@ class DeskVNCExecutionTest(IsolatedAsyncioTestCase):
         self.assertTrue(len(payload["hosts"]) >= 3)
 
     async def test_connect_and_observe_multimodal(self) -> None:
+        """Test connect and observe actions with multimodal chunks."""
         # Connect to host
-        chunks = [chunk async for chunk in await self.tool(action="connect", host_id="host-win11")]
+        chunks = [
+            chunk
+            async for chunk in await self.tool(
+                action="connect",
+                host_id="host-win11",
+            )
+        ]
         self.assertEqual(chunks[0].state, ToolResultState.SUCCESS)
 
-        # Observe screen returns both DataBlock (PNG) and TextBlock (metadata)
+        # Observe screen returns both DataBlock (PNG) and TextBlock
         obs_chunks = [
             chunk
             async for chunk in await self.tool(
-                action="observe", limb_id="limb-ubuntu", scale=0.5
+                action="observe",
+                limb_id="limb-ubuntu",
+                scale=0.5,
             )
         ]
 
@@ -100,6 +122,7 @@ class DeskVNCExecutionTest(IsolatedAsyncioTestCase):
         self.assertGreaterEqual(meta["generation"], 1)
 
     async def test_click_with_fencing_and_reason(self) -> None:
+        """Test click action coordinate unscaling and generation check."""
         chunks = [
             chunk
             async for chunk in await self.tool(
@@ -115,9 +138,10 @@ class DeskVNCExecutionTest(IsolatedAsyncioTestCase):
         self.assertEqual(chunks[0].state, ToolResultState.SUCCESS)
         res = json.loads(chunks[0].content[0].text)
         self.assertEqual(res["status"], "clicked")
-        self.assertEqual(res["coords"], [500, 300])  # Unscaled 250*2, 150*2
+        self.assertEqual(res["coords"], [500, 300])
 
     async def test_type_and_key(self) -> None:
+        """Test typing text and dispatching key chord actions."""
         # Type
         type_chunks = [
             chunk
@@ -142,7 +166,9 @@ class DeskVNCExecutionTest(IsolatedAsyncioTestCase):
         ]
         self.assertEqual(key_chunks[0].state, ToolResultState.SUCCESS)
 
+    # pylint: disable=protected-access
     async def test_control_lease_lifecycle(self) -> None:
+        """Test acquiring and releasing machine control leases."""
         # Acquire
         chunks = [
             chunk
@@ -167,7 +193,11 @@ class DeskVNCMCPFactoryTest(unittest.TestCase):
     """Test MCP client factory configuration for DeskVNC."""
 
     def test_create_stdio_client(self) -> None:
-        client = create_deskvnc_mcp_client(command="dvv", args=["mcp", "--stdio"])
+        """Test creating DeskVNC stdio MCP client."""
+        client = create_deskvnc_mcp_client(
+            command="dvv",
+            args=["mcp", "--stdio"],
+        )
         self.assertIsInstance(client, MCPClient)
         self.assertEqual(client.name, "deskvnc")
         self.assertTrue(client.is_stateful)
@@ -175,6 +205,7 @@ class DeskVNCMCPFactoryTest(unittest.TestCase):
         self.assertEqual(client.mcp_config.args, ["mcp", "--stdio"])
 
     def test_create_http_client(self) -> None:
+        """Test creating DeskVNC HTTP MCP client."""
         client = create_deskvnc_mcp_client(
             http_url="http://127.0.0.1:24801/mcp",
             auth_token="test-token-123",
@@ -184,4 +215,7 @@ class DeskVNCMCPFactoryTest(unittest.TestCase):
         self.assertEqual(client.name, "deskvnc-http")
         self.assertEqual(client.mcp_config.url, "http://127.0.0.1:24801/mcp")
         self.assertIn("Authorization", client.mcp_config.headers)
-        self.assertEqual(client.mcp_config.headers["Authorization"], "Bearer test-token-123")
+        self.assertEqual(
+            client.mcp_config.headers["Authorization"],
+            "Bearer test-token-123",
+        )
